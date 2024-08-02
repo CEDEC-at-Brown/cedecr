@@ -5,3 +5,10 @@ export(get_census_code_vec)
 export(get_traffic_density)
 export(search_organization_multiple)
 export(search_organization_single)
+
+
+import(geosphere)
+import(httr)
+import(jsonlite)
+import(sf)
+import(tigris)

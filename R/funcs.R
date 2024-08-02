@@ -9,6 +9,7 @@
 #' @param lat2 Latitude of the second point.
 #' @param lon2 Longitude of the second point.
 #' @return Distance in miles.
+#' @import sf
 #' @export
 calculate_distance <- function(lat1, lon1, lat2, lon2) {
   dist <- distGeo(matrix(c(lon1, lat1), nrow = 1), matrix(c(lon2, lat2), nrow = 1))
@@ -343,18 +344,19 @@ get_neighborhood_from_address <- function(address) {
 #' @return A string representing the neighborhood name.
 #' @import sf
 #' @export
-get_school_district_from_coordinates <- function(lat, lon) {
-  districts <- st_read("Unified_School_Districts_RI/Unified_School_Districts.shp")
+get_neighborhood_from_coordinates <- function(lat, lon) {
+
+  neighborhoods <- st_read("Neighborhood_Boundaries/providence_neighborhoods.shp")
 
   point <- st_sfc(st_point(c(lon, lat)), crs = 4326)
 
-  point <- st_transform(point, st_crs(districts))
+  point <- st_transform(point, st_crs(neighborhoods))
 
-  district <- districts[st_contains(districts, point, sparse = FALSE), ]
+  neighborhood <- neighborhoods[st_contains(neighborhoods, point, sparse = FALSE), ]
 
-  if (nrow(district) == 0) {
+  if (nrow(neighborhood) == 0) {
     stop("The coordinates do not fall within any neighborhood in Providence, RI.")
   } else {
-    return(district$NAME)
+    return(neighborhood$lname)
   }
 }
