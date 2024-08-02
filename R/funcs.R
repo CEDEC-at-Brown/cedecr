@@ -184,3 +184,61 @@ search_organization_multiple <- function(term, address, yelp_api_key,num_respons
     return(NULL)
   }
 }
+
+#' Get Ward from Coordinates
+#'
+#' This function takes latitude and longitude coordinates as input and returns the corresponding ward
+#' in Providence, RI.
+#'
+#' @param lat Latitude of the location.
+#' @param lon Longitude of the location.
+#' @return A string representing the ward number.
+#' @import sf
+#' @export
+get_ward_from_coordinates <- function(lat, lon) {
+  wards <- st_read("BND_PVD_Wards_2022/BND_PVD_Wards_2022.shp")
+
+  point <- st_sfc(st_point(c(lon, lat)), crs = 4326)
+
+  point <- st_transform(point, st_crs(wards))
+
+  ward <- wards[st_contains(wards, point, sparse = FALSE), ]
+
+  if (nrow(ward) == 0) {
+    stop("The coordinates do not fall within any ward.")
+  } else {
+    return(ward$DISTRICT)
+  }
+}
+
+#' Get Ward from Address
+#'
+#' This function takes latitude and longitude coordinates as input and returns the corresponding ward
+#' in Providence, RI.
+#'
+#' @param address A string representing the address in Providence, RI.
+#' @return A string representing the ward number.
+#' @import sf
+#' @export
+get_ward_from_address <- function(address) {
+  address_frame <- data.frame(address = address)
+  coords <- geocode(address_frame,address)
+
+  if (nrow(coords) == 0) {
+    stop("Geocoding failed. Check the address and try again.")
+  }
+
+  wards <- st_read("BND_PVD_Wards_2022/BND_PVD_Wards_2022.shp")
+
+  point <- st_sfc(st_point(c(coords$long, coords$lat)), crs = 4326)
+
+  point <- st_transform(point, st_crs(wards))
+
+  ward <- wards[st_contains(wards, point, sparse = FALSE), ]
+
+  if (nrow(ward) == 0) {
+    stop("The coordinates do not fall within any ward.")
+  } else {
+    return(ward$DISTRICT)
+  }
+}
