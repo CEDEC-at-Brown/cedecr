@@ -248,7 +248,7 @@ get_ward_from_address <- function(address) {
 #' This function takes an address as input and returns the corresponding school district
 #' in Rhode Island.
 #'
-#' @param address A string representing the address in Providence, RI.
+#' @param address A string representing the address in Rhode Island.
 #' @return A string representing the school district name.
 #' @import sf
 #' @export
@@ -296,6 +296,64 @@ get_school_district_from_coordinates <- function(lat, lon) {
 
   if (nrow(district) == 0) {
     stop("The coordinates do not fall within any school district in RI.")
+  } else {
+    return(district$NAME)
+  }
+}
+
+#' Get Neighborhood from Address
+#'
+#' This function takes an address as input and returns the corresponding neighborhood
+#' in Providence, Rhode Island.
+#'
+#' @param address A string representing the address in Providence, RI.
+#' @return A string representing the neighborhood name.
+#' @import sf
+#' @export
+get_neighborhood_from_address <- function(address) {
+  address_frame <- data.frame(address = address)
+  coords <- geocode(address_frame,address)
+
+  if (nrow(coords) == 0) {
+    stop("Geocoding failed. Check the address and try again.")
+  }
+
+  neighborhoods <- st_read("Neighborhood_Boundaries/providence_neighborhoods.shp")
+
+  point <- st_sfc(st_point(c(coords$long, coords$lat)), crs = 4326)
+
+  point <- st_transform(point, st_crs(neighborhoods))
+
+  neighborhood <- neighborhoods[st_contains(neighborhoods, point, sparse = FALSE), ]
+
+  if (nrow(neighborhood) == 0) {
+    stop("The coordinates do not fall within any neighborhood in Providence, RI.")
+  } else {
+    return(neighborhood$lname)
+  }
+}
+
+#' Get Neighborhood from Coordinates
+#'
+#' This function takes latitude and longitude coordinates as input and returns the corresponding
+#' neighborhood in Providence, Rhode Island.
+#'
+#' @param lat Latitude of the location.
+#' @param lon Longitude of the location.
+#' @return A string representing the neighborhood name.
+#' @import sf
+#' @export
+get_school_district_from_coordinates <- function(lat, lon) {
+  districts <- st_read("Unified_School_Districts_RI/Unified_School_Districts.shp")
+
+  point <- st_sfc(st_point(c(lon, lat)), crs = 4326)
+
+  point <- st_transform(point, st_crs(districts))
+
+  district <- districts[st_contains(districts, point, sparse = FALSE), ]
+
+  if (nrow(district) == 0) {
+    stop("The coordinates do not fall within any neighborhood in Providence, RI.")
   } else {
     return(district$NAME)
   }
