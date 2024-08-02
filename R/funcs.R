@@ -205,7 +205,7 @@ get_ward_from_coordinates <- function(lat, lon) {
   ward <- wards[st_contains(wards, point, sparse = FALSE), ]
 
   if (nrow(ward) == 0) {
-    stop("The coordinates do not fall within any ward.")
+    stop("The coordinates do not fall within any ward in Providence, RI.")
   } else {
     return(ward$DISTRICT)
   }
@@ -213,7 +213,7 @@ get_ward_from_coordinates <- function(lat, lon) {
 
 #' Get Ward from Address
 #'
-#' This function takes latitude and longitude coordinates as input and returns the corresponding ward
+#' This function takes an address as input and returns the corresponding ward
 #' in Providence, RI.
 #'
 #' @param address A string representing the address in Providence, RI.
@@ -237,8 +237,66 @@ get_ward_from_address <- function(address) {
   ward <- wards[st_contains(wards, point, sparse = FALSE), ]
 
   if (nrow(ward) == 0) {
-    stop("The coordinates do not fall within any ward.")
+    stop("The coordinates do not fall within any ward in Providence, RI.")
   } else {
     return(ward$DISTRICT)
+  }
+}
+
+#' Get School District from Address
+#'
+#' This function takes an address as input and returns the corresponding school district
+#' in Rhode Island.
+#'
+#' @param address A string representing the address in Providence, RI.
+#' @return A string representing the school district name.
+#' @import sf
+#' @export
+get_school_district_from_address <- function(address) {
+  address_frame <- data.frame(address = address)
+  coords <- geocode(address_frame,address)
+
+  if (nrow(coords) == 0) {
+    stop("Geocoding failed. Check the address and try again.")
+  }
+
+  districts <- st_read("Unified_School_Districts_RI/Unified_School_Districts.shp")
+
+  point <- st_sfc(st_point(c(coords$long, coords$lat)), crs = 4326)
+
+  point <- st_transform(point, st_crs(districts))
+
+  district <- districts[st_contains(districts, point, sparse = FALSE), ]
+
+  if (nrow(district) == 0) {
+    stop("The coordinates do not fall within any school district in RI.")
+  } else {
+    return(district$NAME)
+  }
+}
+
+#' Get School District from Coordinates
+#'
+#' This function takes latitude and longitude coordinates as input and returns the corresponding school
+#' district in Rhode Island.
+#'
+#' @param lat Latitude of the location.
+#' @param lon Longitude of the location.
+#' @return A string representing the school district name.
+#' @import sf
+#' @export
+get_school_district_from_coordinates <- function(lat, lon) {
+  districts <- st_read("Unified_School_Districts_RI/Unified_School_Districts.shp")
+
+  point <- st_sfc(st_point(c(lon, lat)), crs = 4326)
+
+  point <- st_transform(point, st_crs(districts))
+
+  district <- districts[st_contains(districts, point, sparse = FALSE), ]
+
+  if (nrow(district) == 0) {
+    stop("The coordinates do not fall within any school district in RI.")
+  } else {
+    return(district$NAME)
   }
 }
