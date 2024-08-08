@@ -1,0 +1,163 @@
+---
+title: "Big Brothers Big Sisters Keyword Search"
+format: html
+editor: visual
+---
+
+## Importing Packages/Libraries
+
+```{r}
+library(googlesheets4)
+library(dplyr)
+library(stringr)
+library(purrr)
+```
+
+## Importing the data from the BBBS Google Sheet
+
+```{r}
+# Assign the sheet link to 'sheet_id' object name
+sheet_id <- "https://docs.google.com/spreadsheets/d/1s8lGDo-1Zz8x78HdsQS8GcNTIq4tabvW-cU6MPny7a8/edit?usp=sharing"
+
+# Extract each sheet and assign them to object's names
+nonprofit <- read_sheet(sheet_id, sheet = "nonprofit")
+corp <- read_sheet(sheet_id, sheet = "corporation")
+llc <- read_sheet(sheet_id, sheet = "llc")
+```
+
+## Function to ensure columns have consistent types by converting all types into character type, except numeric and character
+
+```{r}
+
+# input: 'dfs' takes in a list of dataframes
+# output: a list of dataframes with consistent column' datatypes
+
+column_type_change <- function(dfs) {
+  # Find common columns across all dataframes in the list
+  common_cols <- Reduce(intersect, lapply(dfs, colnames))
+  
+  # Determine the most common type for each column
+  col_types <- sapply(common_cols, function(col) {
+    # Check if the columns in each dataframe exist in common_cols and
+    # output the first column's datatype, otherwise output NA
+    column_classes <- sapply(dfs, function(df) 
+      if(col %in% colnames(df)) class(df[[col]])[1] else NA)
+    # Remove any NA values from column_classes object
+    column_classes <- column_classes[!is.na(column_classes)]
+    # Create a frequency table of column_classes and output the most common datatype 
+    # stored in 'common_type' object, which is the first record in the table
+    common_type <- names(sort(table(column_classes), decreasing = TRUE))[1]
+    return(common_type)
+  })
+  
+  # Convert columns to the most common type with error handling
+  dfs <- lapply(dfs, function(df) {
+    for (col in common_cols) {
+      if (!is.null(df[[col]]) && class(df[[col]])[1] != col_types[col]) {
+        df[[col]] <- tryCatch({
+          if (col_types[col] == "character") {
+            as.character(df[[col]])
+          } else if (col_types[col] == "numeric") {
+            as.numeric(as.character(df[[col]]))
+          } else if (col_types[col] == "Date") {
+            as.Date(df[[col]])
+          } else if (col_types[col] == "POSIXct") {
+            as.POSIXct(df[[col]], tz = "UTC")
+          }
+        }, error = function(e) {
+          warning(paste("Failed to convert column", col, "to type", col_types[col], ":", e$message))
+          df[[col]]
+        })
+      }
+    }
+    return(df)
+  })
+  
+  return(dfs)
+}
+```
+
+## Function to search dataframes using a vector of keywords, columns, and state (2-letter abbreviation)
+
+```{r}
+
+# input: 'dfs' takes in a list of dataframes
+#        'keywords' is a vector of strings
+#        'columns' is a vector of strings, with the column names written as strings
+#.       'states' is list/vector of strings, containing two-letter abbreviation for any state
+# output: return a customized dataframe based on the inputs by the user, combining all dataframes in the list 
+
+search_key <- function(dfs, keywords, columns, states) {
+  # Convert all states in the list/vector to uppercase
+  states <- toupper(states)
+  
+  # Assign states that don't exist in state.abb to 'invalid_states' object
+  invalid_states <- states[!states %in% state.abb]
+  
+  # If invalid states exist, return an error message and stop the function
+  if (length(invalid_states) > 0) {
+  stop("Invalid state abbreviation(s): ", paste(invalid_states, collapse = ", "))}
+
+  dfs <- lapply(dfs, function(df) {
+    # Ensure the columns inputted by the user exist in the dataframes
+    valid_columns <- columns[columns %in% colnames(df)]
+    
+    # If the columns don't exist in the dataframes, output an empty dataframe
+    if (length(valid_columns) == 0) {
+      return(data.frame())
+    }
+    
+    # Check if the potential state column exists in the dataframe
+    possible_state_cols <- c("State", "STATE", "state", "ST", "St", "st")
+    state_column <- colnames(df)[tolower(colnames(df)) %in% tolower(possible_state_cols)]
+    
+    # A pattern to detect keywords in the specified columns and their respective rows
+    keyword_pattern <- paste0("\\b(", paste(keywords, collapse = "|"), ")\\b")
+    
+    # Filter the dataframe based on the given keywords, found state_column and 
+    # create a column for the matched keyword
+    result <- df %>%
+      {
+        if (length(state_column) > 0) 
+        filter(., !!sym(state_column[1]) %in% states) else .
+        } %>%
+      filter(if_any(all_of(valid_columns), ~ str_detect(tolower(.), keyword_pattern))) %>%
+      rowwise() %>%
+      mutate(
+        KeywordColumn = list(
+          valid_columns[sapply(valid_columns, 
+                               function(col) 
+                                 str_detect(tolower(get(col)), keyword_pattern))]),
+        Keyword = paste(unique(unlist(
+          str_extract_all(tolower(paste(across(all_of(valid_columns)), collapse = " ")),
+                          keyword_pattern))), collapse = ", ")) %>%
+      ungroup()
+    return(result)
+    }
+    )
+  
+  # Ensure column datatypes are consistent across all the dataframes
+  dfs <- column_type_change(dfs)
+  
+  # Combine all filtered data frames into one
+  combined_dfs <- tryCatch({
+    bind_rows(dfs)
+  }, error = function(e) {
+    stop("Failed to combine the search results: ", e$message)
+  }
+  )
+  return(combined_dfs)
+}
+```
+
+# Test cases
+
+```{r}
+# Test cases
+
+dfs <- list(nonprofit, corp, llc)
+keywords <- c("gym", "barber", "sport")
+target_columns <- c("EntityName", "Purpose")
+
+bbbs_result <- search_key(dfs, keywords, target_columns, "RI")
+```
